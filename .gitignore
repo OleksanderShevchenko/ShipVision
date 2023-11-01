@@ -1,2 +1,4 @@
 .env_py311/
 ships_dataset/
+tensor_board/
+model_checkpoint/
