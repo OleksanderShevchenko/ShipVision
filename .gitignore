@@ -2,3 +2,6 @@
 ships_dataset/
 tensor_board/
 model_checkpoint/
+*.zip
+*.dat
+*.pub
