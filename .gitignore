@@ -5,3 +5,4 @@ model_checkpoint/
 *.zip
 *.dat
 *.pub
+*.code-workspace
