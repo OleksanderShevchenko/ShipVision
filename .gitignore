@@ -8,4 +8,6 @@ model_checkpoint/
 *.code-workspace
 .env/
 .vscode/
-
+*.jpg
+*.jpeg
+*.png
