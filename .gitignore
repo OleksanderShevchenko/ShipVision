@@ -6,3 +6,6 @@ model_checkpoint/
 *.dat
 *.pub
 *.code-workspace
+.env/
+.vscode/
+
