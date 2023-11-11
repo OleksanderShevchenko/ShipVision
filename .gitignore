@@ -12,3 +12,4 @@ model_checkpoint/
 *.jpeg
 *.png
 *.h5
+src/__pycache__
