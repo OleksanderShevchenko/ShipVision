@@ -10,24 +10,47 @@ from PyQt5 import QtGui, QtCore, QtWidgets, uic
 from PyQt5.QtWidgets import QAction, QToolButton, QLabel, QComboBox, QVBoxLayout, QMenu, QFileDialog, QInputDialog, \
     QLineEdit, QMessageBox, QApplication
 
+from ui.main_ui import Ui_Dialog
 
-class MainDialog(QtWidgets.QDialog):
+
+class MainDialog(QtWidgets.QDialog, Ui_Dialog):
     """
     This class implements main window appearance and behaviour
     """
-    __class_names = ['Aircraft Carrier', 'Bulkers', 'Car Carrier', 'Container Ship', 'Cruise', 'DDG', 'Recreational', 'Sailboat', 'Submarine', 'Tug']
-
+    __class_names = ['Aircraft Carrier',
+                    'Bulkers',
+                    'Car Carrier',
+                    'Container Ship',
+                    'Cruise',
+                    'DDG',
+                    'Recreational',
+                    'Sailboat',
+                    'Submarine',
+                    'Tug']
     # <editor-fold desc="Constructor, Destructor, redefined methods">
     def __init__(self, parent = None, app_: QApplication = None):
         
         super().__init__(parent)
         self.__app: QApplication = app_
-        uic.loadUi(os_path.dirname(__file__) + '/ui/main.ui', self)
+        self.setupUi(self)
+        # uic.loadUi(os_path.dirname(__file__) + '/ui/main.ui', self)
         self.pbBrows.clicked.connect(self.__load_picture)
+        self.cbModel.currentIndexChanged.connect(self.__select_model)
         self.bpClassify.clicked.connect(self.__classify)
-        self._model = tf.keras.models.load_model(os_path.dirname(__file__) + "\model\ship_vision_effisientnet_b0.h5")
+        self.bpClassify.setEnabled(False)
+        self._model_path = os.path.join(os_path.dirname(__file__), "model")
+        self._model: tf.keras.Model = None
         self.previousPath = "C:/"
         self.__last_file: str = None
+        self.__populate_model_files()
+
+    def __populate_model_files(self) -> None:
+        items = []
+        for _, _, file_name in os.walk(self._model_path):
+            items = file_name
+        if len(items) > 0:
+            self.cbModel.addItems(items)
+            self.cbModel.setCurrentIndex(-1)
 
     def __load_picture(self):
         title = "Open picture"
@@ -41,16 +64,40 @@ class MainDialog(QtWidgets.QDialog):
         self.__last_file = file_name
         try:
             with open(file_name, 'rb') as pic:
-                pixmap_image = self.__pixmap_from_binary_string(base64.b64encode(pic.read()))
-                self.lblImage.setPixmap(pixmap_image)
+                data = pic.read()
+                pixmap = QPixmap()
+                pixmap.loadFromData(data)
+                self.lblImage.setPixmap(pixmap)
+                self.lblClass.setText("Unknown")
         except Exception as err:
             print(f"Error occur: {err}")
-            
+
+    def __select_model(self, idx: int) -> None:
+        if idx < 0:
+            return
+        model_name = self.cbModel.currentText()        
+        file_name = os.path.join(self._model_path, model_name)
+
+        if not os.path.isfile(file_name):
+            self._model = None
+            self.showDialog(f"Model file with name {file_name} could not be found!", "Initialize model")
+            self.bpClassify.setEnabled(False)
+            self.lblClass.setText("Unknown")
+            return
+        self.lblClass.setText("Loading model ... Please wait.")
+        self.repaint()
+        self.__app.processEvents()
+        self._model = tf.keras.models.load_model(file_name)
+        self.bpClassify.setEnabled(True)
+        self.lblClass.setText("Unknown")
     
     def __classify(self):
-        if not os.path.isfile(self.__last_file):
+        if not os.path.isfile(self.__last_file) or self._model is None:
             return
-        img = self.__load_and_prepare_image(self.__last_file)
+        self.lblClass.setText("-----")
+        self.repaint()
+        self.__app.processEvents()
+        img = self.__load_and_prepare_image(self.__last_file, scale=False)
         pred_prob = self._model.predict(tf.expand_dims(img, axis=0))
         pred_class = self.__class_names[pred_prob.argmax()]
         self.lblClass.setText(pred_class)
@@ -73,15 +120,8 @@ class MainDialog(QtWidgets.QDialog):
             if not file_name.endswith(extension):  # check if extension has not been included
                 file_name = file_name + extension
             print(file_name)
+        self.previousPath = os.path.dirname(file_name)
         return file_name
-    
-    def __pixmap_from_binary_string(self, image: str) -> QPixmap:
-        img_byte_data = base64.b64decode(image)
-        image_data = BytesIO(img_byte_data)
-        image = Image.open(image_data)
-        qImage = ImageQt.ImageQt(image)
-        pixmap_image = QtGui.QPixmap.fromImage(qImage)
-        return pixmap_image
     
     # create a function to load nad prepare image
     def __load_and_prepare_image(self, filename, image_size=224, scale=True):
@@ -96,3 +136,11 @@ class MainDialog(QtWidgets.QDialog):
             return img/255.
         else:
             return img
+        
+    def showDialog(self, msg: str, title: str):
+        msgBox = QMessageBox()
+        msgBox.setIcon(QMessageBox.Information)
+        msgBox.setText(msg)
+        msgBox.setWindowTitle(title)
+        msgBox.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+        returnValue = msgBox.exec()
