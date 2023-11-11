@@ -11,3 +11,4 @@ model_checkpoint/
 *.jpg
 *.jpeg
 *.png
+*.h5
